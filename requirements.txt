@@ -1,0 +1,15 @@
+opencv-python
+Cython
+numba
+progress
+matplotlib
+easydict
+scipy
+pyquaternion
+nuscenes-devkit
+cython_bbox
+loguru
+filterpy
+pyyaml
+motmetrics
+scikit-learn==0.22.2
