@@ -9,18 +9,6 @@
 
 ## Main results
 
-### Dancer tracking on UAVDT test set
-
-|  MOTA  | IDF1 | IDs  | FPS  |
-|--------|------|------|------|
-|  49.2  | 68.9 |  120 | 28.2 |
-
-### Athlete tracking on SportsMOT test set
-
-|  HOTA  | MOTA | AssA | IDF1 | DetA |     
-|--------|------|------|------|------|
-| 65.4 | 90.5 | 53.0 | 67.8 | 80.8 |
-
 
 ## Installation
 
