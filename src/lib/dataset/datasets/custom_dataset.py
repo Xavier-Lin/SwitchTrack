@@ -10,11 +10,12 @@ from loguru import logger as lg
 class CustomDataset(GenericDataset):
   num_categories = 1
   class_name = ['']
-  max_objs = 500
+  max_objs = 0
   cat_ids = {1: 1}
   def __init__(self, opt, split):
     # import pdb
     # pdb.set_trace()
+    self.max_objs = opt.K
     img_dir = opt.custom_dataset_img_path
     ann_path = opt.custom_dataset_ann_path
     self.num_categories = opt.num_classes
