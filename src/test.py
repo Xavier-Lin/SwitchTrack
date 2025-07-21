@@ -205,10 +205,10 @@ if __name__ == '__main__':
     seqs_str = [s for s in os.listdir(seqs_path) if not ('.D' in s)]
     seqs = sorted([seq for seq in seqs_str])
     val_name = 'dc' if opt.hungarian else ('ct' if opt.use_center else ('ct_kf' if opt.use_center_kf else ('fair' if opt.use_fairmot else ('sort' if opt.use_sort else ('ocsort' if opt.use_ocsort else ('deepsort' if opt.use_deepsort else 'byte'))))))
-
+    model_name = (opt.load_model.split('/')[-1]).split('.')[0]
     main(opt,
          data_root=data_root,
          seqs=seqs,
-         exp_name=f'trackval_{val_name}',
+         exp_name=f'trackval_{val_name}_{model_name}',
          show_image=False,
         )

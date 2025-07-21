@@ -94,7 +94,7 @@ class GenericDataset(data.Dataset):
 
   def __getitem__(self, index):
     opt = self.opt
-    img, anns, img_info, img_path = self._load_data(index)
+    img, anns, img_info, img_path = self._load_data(index)# 获取当前帧的标注信息
    
     #vis
     # im=img.copy()
@@ -104,38 +104,38 @@ class GenericDataset(data.Dataset):
     # cv2.imwrite('./ddd1.jpg', im)
      
     height, width = img.shape[0], img.shape[1]
-    c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
+    c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)# 当前帧图像的中心点
     # c = np.array([w/2, h/2]) 
     s = max(img.shape[0], img.shape[1]) * 1.0 if not self.opt.not_max_crop \
-      else np.array([img.shape[1], img.shape[0]], np.float32)
+      else np.array([img.shape[1], img.shape[0]], np.float32) # 当前帧图像的长边
   
     aug_s, rot, flipped = 1, 0, 0
     if self.split == 'train':
-      c, aug_s, rot = self._get_aug_param(c, s, width, height)
+      c, aug_s, rot = self._get_aug_param(c, s, width, height)#增广之后的图像中心点 这里默认没有用到旋转
       #c = np.array([w/2, h/2])
-      s = s * aug_s
-      if np.random.random() < opt.flip:
+      s = s * aug_s # 获取增广之后的长边
+      if np.random.random() < opt.flip:# 一半的 概率 用到随机翻转
         flipped = 1
         img = img[:, ::-1, :]
-        anns = self._flip_anns(anns, width)
+        anns = self._flip_anns(anns, width)# 对bbox进行翻转
 
     trans_input = get_affine_transform(
-      c, s, rot, [opt.input_w, opt.input_h])
+      c, s, rot, [opt.input_w, opt.input_h])# 获取从原图到输入尺寸的转换矩阵
     trans_output = get_affine_transform(
-      c, s, rot, [opt.output_w, opt.output_h])
-    inp = self._get_input(img, trans_input)
-    ret = {'image': inp}
+      c, s, rot, [opt.output_w, opt.output_h])# 获取从原图到输出尺寸的转换矩阵
+    inp = self._get_input(img, trans_input)# 获取输入尺寸下 进行数据增强后的图像
+    ret = {'image': inp}# 输入尺寸下 进行数据增强之后的图像
 
     pre_cts, track_ids = None, None
     if opt.tracking:
       pre_image, pre_anns, frame_dist = self._load_pre_data(
         img_info['video_id'], img_info['frame_id'], 
-        img_info['sensor_id'] if 'sensor_id' in img_info else 1) 
+        img_info['sensor_id'] if 'sensor_id' in img_info else 1) # 获取前一帧图像 及其标注信息
         
-      if flipped:
+      if flipped:# 跟随当前图像的翻转而翻转
         pre_image = pre_image[:, ::-1, :].copy()
         pre_anns = self._flip_anns(pre_anns, width)
-      if opt.same_aug_pre and frame_dist != 0:
+      if opt.same_aug_pre and frame_dist != 0:# T -- 当前帧 与 前一帧共用相同的图像增广变换
         trans_input_pre = trans_input 
         trans_output_pre = trans_output
       else:
@@ -148,13 +148,14 @@ class GenericDataset(data.Dataset):
           c_pre, s_pre, rot, [opt.output_w, opt.output_h])
           
 
-      pre_img = self._get_input(pre_image, trans_input_pre)# c h w
-      pre_hm, pre_cts, track_ids = self._get_pre_dets(
+      pre_img = self._get_input(pre_image, trans_input_pre)# c h w -- 获取经过相同数据增强之后的前一帧图像
+      pre_hm, pre_cts, track_ids, pre_d_ltrb = self._get_pre_dets(
         pre_anns, trans_input_pre, trans_output_pre)
+      # 获取输入尺寸下的 热力图，输出尺寸下的前一帧目标的中心点，和 前一帧目标的轨迹id，以及输出尺寸下的 中心点四方矢量
      
       ret['pre_img'] = pre_img
       if opt.pre_hm:
-        ret['pre_hm'] = pre_hm 
+        ret['pre_hm'] = pre_hm # 添加前一帧热图
 
     # init samples
     self._init_ret(ret)
@@ -186,7 +187,7 @@ class GenericDataset(data.Dataset):
       if cls_id > self.opt.num_classes or cls_id <= 0:
         continue
       bbox, bbox_amodal = self._get_bbox_output(
-        ann['bbox'], trans_output, height, width)
+        ann['bbox'], trans_output)# 原图尺寸转换为特征图输出尺寸的 边界框 ！-- 一个是clip之后的。一个是没有clip的
       
       # vis
       # im = cv2.rectangle(im, ( int(bbox[0]*4), int(bbox[1]*4) ), ( int(bbox[2]*4), int(bbox[3]*4) ), color=(0, 0, 255), thickness=1)
@@ -257,6 +258,7 @@ class GenericDataset(data.Dataset):
     reutrn_hm = self.opt.pre_hm
     pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if reutrn_hm else None
     pre_cts, track_ids = [], []
+    pre_delta_ltrb = []
     for ann in anns:
       cls_id = int(self.cat_ids[ann['category_id']])
       if cls_id > self.opt.num_classes or cls_id <= 0 or \
@@ -264,9 +266,9 @@ class GenericDataset(data.Dataset):
         continue
       bbox = self._coco_box_to_bbox(ann['bbox'])# x1y1wh 2 xyxy
       bbox[:2] = affine_transform(bbox[:2], trans)
-      bbox[2:] = affine_transform(bbox[2:], trans)
+      bbox[2:] = affine_transform(bbox[2:], trans)# 将前一帧 原图尺寸下的 bbox。转换为 输入尺寸下的 bbox
       bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
-      bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
+      bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)# 对输入尺寸下的bbox进行输入尺寸clip
       h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
       # max_rad = 1
       if (h > 0 and w > 0):
@@ -285,8 +287,14 @@ class GenericDataset(data.Dataset):
         ct_int = ct.astype(np.int32)
         if conf == 0:
           pre_cts.append(ct / down_ratio)
+          pre_ltrb = np.array([bbox[0] - ct[0], bbox[1]-ct[1], bbox[2]-ct[0], bbox[3]-ct[1]])
+          pre_ltrb = pre_ltrb.astype(np.float32)
+          pre_delta_ltrb.append(pre_ltrb / down_ratio)
         else:
           pre_cts.append(ct0 / down_ratio)
+          pre_ltrb = np.array([bbox[0] - ct0[0], bbox[1]-ct0[1], bbox[2]-ct0[0], bbox[3]-ct0[1]])
+          pre_ltrb = pre_ltrb.astype(np.float32)
+          pre_delta_ltrb.append(pre_ltrb / down_ratio)
         track_ids.append(ann['track_id'] if 'track_id' in ann else -1)
         if reutrn_hm:
           draw_umich_gaussian(pre_hm[0], ct_int, radius, k=conf)
@@ -299,7 +307,7 @@ class GenericDataset(data.Dataset):
           ct2_int = ct2.astype(np.int32)
           draw_umich_gaussian(pre_hm[0], ct2_int, radius, k=conf)
 
-    return pre_hm, pre_cts, track_ids
+    return pre_hm, pre_cts, track_ids, pre_delta_ltrb
 
 
   def _get_border(self, border, size):
@@ -366,7 +374,7 @@ class GenericDataset(data.Dataset):
     # ret ={'image': curr_img after aug, 'pre_img': pre_img after the same aug  'pre_hm': Previous frame GT heat map with network input size
     #        'hm': shape(1, h/4, w/4), 'ind':shape(K,),  'cat':shape(K,),  'mask':shape(K,) }
 
-    regression_head_dims = {'reg': 2, 'tracking': 2, 'ltrb_amodal': 4}
+    regression_head_dims = {'reg': 2, 'tracking': 2, 'ltrb_amodal': 4} # 这里需不需要改成4
 
     for head in regression_head_dims:
       if head in self.opt.heads:# {'hm', 'reg', 'tracking','ltrb_amodal', 'reid' }
@@ -426,7 +434,7 @@ class GenericDataset(data.Dataset):
                     dtype=np.float32)
     return bbox# x1y1wh to xyxy
 
-  def _get_bbox_output(self, bbox, trans_output, height, width):
+  def _get_bbox_output(self, bbox, trans_output):
 
     bbox = self._coco_box_to_bbox(bbox).copy()
 
@@ -460,8 +468,8 @@ class GenericDataset(data.Dataset):
     radius = gaussian_radius((math.ceil(h), math.ceil(w)))
     radius = max(0, int(radius)) 
     ct = np.array(
-      [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
-    ct_int = ct.astype(np.int32)
+      [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)# 输出尺寸下 bbox精确中心点坐标
+    ct_int = ct.astype(np.int32)# 输出尺寸下 bbox 中心点单元格坐标
     ret['cat'][k] = cls_id - 1
     ret['mask'][k] = 1
     ret['ind'][k] = ct_int[1] * self.opt.output_w + ct_int[0]
@@ -473,7 +481,7 @@ class GenericDataset(data.Dataset):
       if ann['track_id'] in track_ids:
         pre_ct = pre_cts[track_ids.index(ann['track_id'])]
         ret['tracking_mask'][k] = 1 
-        ret['tracking'][k] = pre_ct - ct_int 
+        ret['tracking'][k] = pre_ct - ct_int # 前一帧精确 减去当前帧 单元格
   
 
     if 'ltrb_amodal' in self.opt.heads:

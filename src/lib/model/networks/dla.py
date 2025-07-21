@@ -495,8 +495,10 @@ def dla60(pretrained=None, **kwargs):  # DLA-60
                 [16, 32, 128, 256, 512, 1024],
                 block=Bottleneck, **kwargs)
     if pretrained is not None:
+        # model.load_pretrained_model(
+        #     data='imagenet', name='dla60', hash='24839fc4')
         model.load_pretrained_model(
-            data='imagenet', name='dla60', hash='24839fc4')
+            data='../pretrain/', name='dla60-24839fc4.pth')
     return model
 
 

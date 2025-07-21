@@ -88,7 +88,7 @@ class STrack(BaseTrack):
 class Tracker(object):
   def __init__(self, opt):
     self.opt = opt
-    self.max_time_lost = 30 # 30 ｜ 60
+    self.max_time_lost = opt.max_age # 30 ｜ 60
     self.reset()
       
   def reset(self):# reset tracker for every seq
@@ -185,7 +185,7 @@ class Tracker(object):
     self.lost_stracks.extend(lost_stracks)
     self.lost_stracks = sub_stracks(self.lost_stracks, removed_stracks)
     self.removed_stracks.extend(removed_stracks)
-    self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
+    # self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
     output_stracks = [track for track in self.tracked_stracks if track.is_activated]
     self.tracks = output_stracks
     

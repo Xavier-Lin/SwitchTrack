@@ -1,6 +1,8 @@
 # For SportsMOT:
-gt_folder_path=/data/zelinliu/BEE24/test
-val_map_path=/data/zelinliu/BEE24/test_seqmap.txt
+# gt_folder_path=/data/zelinliu/BEE24/test
+# val_map_path=/data/zelinliu/BEE24/test_seqmap.txt
+gt_folder_path=/data/zelinliu/sportsmot/val
+val_map_path=/data/zelinliu/sportsmot/splits_txt/val.txt
 track_results_path=/data/zelinliu/SwitchTrack/results/trackval_dc
 # need to change 'gt_val_half.txt' or 'gt.txt'
 val_type='{gt_folder}/{seq}/gt/gt.txt'
