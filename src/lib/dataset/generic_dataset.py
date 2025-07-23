@@ -149,7 +149,7 @@ class GenericDataset(data.Dataset):
           
 
       pre_img = self._get_input(pre_image, trans_input_pre)# c h w -- 获取经过相同数据增强之后的前一帧图像
-      pre_hm, pre_cts, track_ids, pre_d_ltrb = self._get_pre_dets(
+      pre_hm, pre_cts, track_ids = self._get_pre_dets(
         pre_anns, trans_input_pre, trans_output_pre)
       # 获取输入尺寸下的 热力图，输出尺寸下的前一帧目标的中心点，和 前一帧目标的轨迹id，以及输出尺寸下的 中心点四方矢量
      
@@ -250,7 +250,7 @@ class GenericDataset(data.Dataset):
     frame_dist = abs(frame_id - pre_frame_id)
     img, anns, _, _ = self._load_image_anns(img_id, self.coco, self.img_dir)
     return img, anns, frame_dist
-
+  
   def _get_pre_dets(self, anns, trans_input, trans_output):
     hm_h, hm_w = self.opt.input_h, self.opt.input_w 
     down_ratio = self.opt.down_ratio# 4
@@ -258,7 +258,6 @@ class GenericDataset(data.Dataset):
     reutrn_hm = self.opt.pre_hm
     pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if reutrn_hm else None
     pre_cts, track_ids = [], []
-    pre_delta_ltrb = []
     for ann in anns:
       cls_id = int(self.cat_ids[ann['category_id']])
       if cls_id > self.opt.num_classes or cls_id <= 0 or \
@@ -266,9 +265,9 @@ class GenericDataset(data.Dataset):
         continue
       bbox = self._coco_box_to_bbox(ann['bbox'])# x1y1wh 2 xyxy
       bbox[:2] = affine_transform(bbox[:2], trans)
-      bbox[2:] = affine_transform(bbox[2:], trans)# 将前一帧 原图尺寸下的 bbox。转换为 输入尺寸下的 bbox
+      bbox[2:] = affine_transform(bbox[2:], trans)
       bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
-      bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)# 对输入尺寸下的bbox进行输入尺寸clip
+      bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
       h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
       # max_rad = 1
       if (h > 0 and w > 0):
@@ -287,14 +286,8 @@ class GenericDataset(data.Dataset):
         ct_int = ct.astype(np.int32)
         if conf == 0:
           pre_cts.append(ct / down_ratio)
-          pre_ltrb = np.array([bbox[0] - ct[0], bbox[1]-ct[1], bbox[2]-ct[0], bbox[3]-ct[1]])
-          pre_ltrb = pre_ltrb.astype(np.float32)
-          pre_delta_ltrb.append(pre_ltrb / down_ratio)
         else:
           pre_cts.append(ct0 / down_ratio)
-          pre_ltrb = np.array([bbox[0] - ct0[0], bbox[1]-ct0[1], bbox[2]-ct0[0], bbox[3]-ct0[1]])
-          pre_ltrb = pre_ltrb.astype(np.float32)
-          pre_delta_ltrb.append(pre_ltrb / down_ratio)
         track_ids.append(ann['track_id'] if 'track_id' in ann else -1)
         if reutrn_hm:
           draw_umich_gaussian(pre_hm[0], ct_int, radius, k=conf)
@@ -307,7 +300,7 @@ class GenericDataset(data.Dataset):
           ct2_int = ct2.astype(np.int32)
           draw_umich_gaussian(pre_hm[0], ct2_int, radius, k=conf)
 
-    return pre_hm, pre_cts, track_ids, pre_delta_ltrb
+    return pre_hm, pre_cts, track_ids
 
 
   def _get_border(self, border, size):
